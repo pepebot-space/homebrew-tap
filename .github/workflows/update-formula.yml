@@ -1,0 +1,56 @@
+name: Update Formula
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version to update to (e.g., 0.4.0)'
+        required: true
+      darwin_arm64_sha:
+        description: 'SHA256 for darwin-arm64'
+        required: true
+      darwin_amd64_sha:
+        description: 'SHA256 for darwin-amd64'
+        required: true
+      linux_amd64_sha:
+        description: 'SHA256 for linux-amd64'
+        required: true
+      linux_arm64_sha:
+        description: 'SHA256 for linux-arm64'
+        required: true
+      linux_armv7_sha:
+        description: 'SHA256 for linux-armv7'
+        required: true
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Update formula
+        run: |
+          sed -i 's/version ".*"/version "${{ github.event.inputs.version }}"/' Formula/pepebot.rb
+
+          # Update macOS ARM64 SHA
+          sed -i '/darwin-arm64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.darwin_arm64_sha }}"/' Formula/pepebot.rb
+
+          # Update macOS Intel SHA
+          sed -i '/darwin-amd64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.darwin_amd64_sha }}"/' Formula/pepebot.rb
+
+          # Update Linux x86_64 SHA
+          sed -i '/linux-amd64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_amd64_sha }}"/' Formula/pepebot.rb
+
+          # Update Linux ARM64 SHA
+          sed -i '/linux-arm64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_arm64_sha }}"/' Formula/pepebot.rb
+
+          # Update Linux ARMv7 SHA
+          sed -i '/linux-armv7.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_armv7_sha }}"/' Formula/pepebot.rb
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add Formula/pepebot.rb
+          git commit -m "Update pepebot to v${{ github.event.inputs.version }}"
+          git push
