@@ -1,26 +1,13 @@
 name: Update Formula
 
 on:
-  workflow_dispatch:
-    inputs:
-      version:
-        description: 'Version to update to (e.g., 0.4.0)'
-        required: true
-      darwin_arm64_sha:
-        description: 'SHA256 for darwin-arm64'
-        required: true
-      darwin_amd64_sha:
-        description: 'SHA256 for darwin-amd64'
-        required: true
-      linux_amd64_sha:
-        description: 'SHA256 for linux-amd64'
-        required: true
-      linux_arm64_sha:
-        description: 'SHA256 for linux-arm64'
-        required: true
-      linux_armv7_sha:
-        description: 'SHA256 for linux-armv7'
-        required: true
+  schedule:
+    # Check setiap hari jam 00:00 UTC
+    - cron: '0 0 * * *'
+  workflow_dispatch: {}
+
+  repository_dispatch:
+    types: [pepebot-release]
 
 jobs:
   update:
@@ -28,29 +15,92 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Update formula
+      - name: Get latest release info
+        id: release
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          sed -i 's/version ".*"/version "${{ github.event.inputs.version }}"/' Formula/pepebot.rb
+          REPO="pepebot-space/pepebot"
 
-          # Update macOS ARM64 SHA
-          sed -i '/darwin-arm64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.darwin_arm64_sha }}"/' Formula/pepebot.rb
+          # Fetch latest release dari GitHub API
+          RELEASE_JSON=$(curl -fsSL \
+            -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${REPO}/releases/latest")
 
-          # Update macOS Intel SHA
-          sed -i '/darwin-amd64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.darwin_amd64_sha }}"/' Formula/pepebot.rb
+          # Extract version (hapus prefix 'v')
+          TAG=$(echo "$RELEASE_JSON" | jq -r '.tag_name')
+          VERSION="${TAG#v}"
 
-          # Update Linux x86_64 SHA
-          sed -i '/linux-amd64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_amd64_sha }}"/' Formula/pepebot.rb
+          echo "tag=$TAG" >> "$GITHUB_OUTPUT"
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
 
-          # Update Linux ARM64 SHA
-          sed -i '/linux-arm64.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_arm64_sha }}"/' Formula/pepebot.rb
+          # Cek version yang ada di formula sekarang
+          CURRENT_VERSION=$(grep 'version "' Formula/pepebot.rb | head -1 | sed -E 's/.*version "(.*)".*/\1/')
+          echo "current_version=$CURRENT_VERSION" >> "$GITHUB_OUTPUT"
 
-          # Update Linux ARMv7 SHA
-          sed -i '/linux-armv7.tar.gz/,/sha256/ s/sha256 ".*"/sha256 "${{ github.event.inputs.linux_armv7_sha }}"/' Formula/pepebot.rb
+          echo "Latest release: $TAG (version: $VERSION)"
+          echo "Current formula: $CURRENT_VERSION"
+
+          if [ "$VERSION" = "$CURRENT_VERSION" ]; then
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            echo "Formula sudah up-to-date, skip."
+          else
+            echo "changed=true" >> "$GITHUB_OUTPUT"
+            echo "New version detected! Updating..."
+          fi
+
+      - name: Download binaries and calculate SHA256
+        if: steps.release.outputs.changed == 'true'
+        id: sha
+        run: |
+          REPO="pepebot-space/pepebot"
+          TAG="${{ steps.release.outputs.tag }}"
+
+          PLATFORMS=("darwin-arm64" "darwin-amd64" "linux-amd64" "linux-arm64" "linux-armv7")
+
+          for platform in "${PLATFORMS[@]}"; do
+            filename="pepebot-${platform}.tar.gz"
+            url="https://github.com/${REPO}/releases/download/${TAG}/${filename}"
+
+            echo "Downloading ${filename}..."
+            curl -fsSL "$url" -o "/tmp/${filename}"
+
+            sha=$(sha256sum "/tmp/${filename}" | awk '{print $1}')
+            rm -f "/tmp/${filename}"
+
+            # Convert dash ke underscore buat output name
+            output_name=$(echo "$platform" | tr '-' '_')
+            echo "${output_name}_sha=${sha}" >> "$GITHUB_OUTPUT"
+
+            echo "  ${platform}: ${sha}"
+          done
+
+      - name: Update formula
+        if: steps.release.outputs.changed == 'true'
+        run: |
+          VERSION="${{ steps.release.outputs.version }}"
+
+          # Update version
+          sed -i "s/version \".*\"/version \"${VERSION}\"/" Formula/pepebot.rb
+
+          # Update SHA256 per platform
+          sed -i "/darwin-arm64.tar.gz/,/sha256/ s/sha256 \".*\"/sha256 \"${{ steps.sha.outputs.darwin_arm64_sha }}\"/" Formula/pepebot.rb
+          sed -i "/darwin-amd64.tar.gz/,/sha256/ s/sha256 \".*\"/sha256 \"${{ steps.sha.outputs.darwin_amd64_sha }}\"/" Formula/pepebot.rb
+          sed -i "/linux-amd64.tar.gz/,/sha256/ s/sha256 \".*\"/sha256 \"${{ steps.sha.outputs.linux_amd64_sha }}\"/" Formula/pepebot.rb
+          sed -i "/linux-arm64.tar.gz/,/sha256/ s/sha256 \".*\"/sha256 \"${{ steps.sha.outputs.linux_arm64_sha }}\"/" Formula/pepebot.rb
+          sed -i "/linux-armv7.tar.gz/,/sha256/ s/sha256 \".*\"/sha256 \"${{ steps.sha.outputs.linux_armv7_sha }}\"/" Formula/pepebot.rb
+
+          echo "Formula updated to v${VERSION}"
+          echo ""
+          echo "=== Updated Formula ==="
+          cat Formula/pepebot.rb
 
       - name: Commit and push
+        if: steps.release.outputs.changed == 'true'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "github-actions[bot]@users.noreply.github.com"
           git add Formula/pepebot.rb
-          git commit -m "Update pepebot to v${{ github.event.inputs.version }}"
+          git diff --staged --quiet && echo "No changes to commit" && exit 0
+          git commit -m "Update pepebot to v${{ steps.release.outputs.version }}"
           git push
