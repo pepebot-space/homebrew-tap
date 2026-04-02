@@ -1,16 +1,16 @@
 class Pepebot < Formula
   desc "Ultra-lightweight personal AI agent"
   homepage "https://github.com/pepebot-space/pepebot"
-  version "0.5.9"
+  version "0.5.10"
   license "MIT"
 
   on_macos do
     if Hardware::CPU.arm?
       url "https://github.com/pepebot-space/pepebot/releases/download/v#{version}/pepebot-darwin-arm64.tar.gz"
-      sha256 "d9e4c855e96169150a7d616d8693f25e0c3179ed431e40911845f8210e4e4521" # Will be filled with actual checksum
+      sha256 "2883112daea2430bac40be3f694e198f54b7d7c6887069372f57e612f2bfaba9" # Will be filled with actual checksum
     else
       url "https://github.com/pepebot-space/pepebot/releases/download/v#{version}/pepebot-darwin-amd64.tar.gz"
-      sha256 "a1793d321f8ba0d72622c7769b645e8e02d17f0e7da201db33fe1cb5ba4be856" # Will be filled with actual checksum
+      sha256 "3e3883d5b2676ba067e6cb0f20f77e9cc2d281e388eb6ab59e4f57bf33cb0e74" # Will be filled with actual checksum
     end
   end
 
@@ -18,14 +18,14 @@ class Pepebot < Formula
     if Hardware::CPU.arm?
       if Hardware::CPU.is_64_bit?
         url "https://github.com/pepebot-space/pepebot/releases/download/v#{version}/pepebot-linux-arm64.tar.gz"
-        sha256 "a94d63ef6a52dd95540bbb20aa2abdc1f157a5c6a1a6ef5ebf0b955f48330a3d" # Will be filled with actual checksum
+        sha256 "6c13873d2d31709e3f99be2a6a7ee996f4276ab8481cad7aaff8c41d795b0f53" # Will be filled with actual checksum
       else
         url "https://github.com/pepebot-space/pepebot/releases/download/v#{version}/pepebot-linux-armv7.tar.gz"
-        sha256 "6b4dbf133fee6d02af239c1d6d421762b78e23337fae61660616708531eaf923" # Will be filled with actual checksum
+        sha256 "6ad0810126f5d46f4820beebb24daed0e4389fca1f78a08f1b03ea775eec9787" # Will be filled with actual checksum
       end
     else
       url "https://github.com/pepebot-space/pepebot/releases/download/v#{version}/pepebot-linux-amd64.tar.gz"
-      sha256 "6b3c9fb52bd75e1dc7c40a7069a04d1f531a2a49cd3907da46d3f3b462266235" # Will be filled with actual checksum
+      sha256 "5e8baa6356f1f6905d227cd65474659c34858ba98550605e3b22d8830b1ae203" # Will be filled with actual checksum
     end
   end
 
